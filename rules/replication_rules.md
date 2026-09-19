@@ -286,3 +286,37 @@ Compare visually. If something looks wrong, fix it before moving on.
 | New asset files | Hot-restart (`R`) |
 | pubspec.yaml changes | `flutter pub get` → Hot-restart (`R`) |
 | New package dependency | `flutter pub get` → Hot-restart (`R`) |
+
+---
+
+## 8. Bytecode-to-Flutter Translation & Decompilation Integrity (القواعد الصارمة لفك وتحويل الكود)
+
+### Rule B1: Zero Hallucination UI Protocol (ممنوع البناء من الرأس)
+When DEX bytecode or decompiled Composables exist, NEVER invent, guess, or create UI structures based on general assumptions:
+1. Locate the exact Composable method or class in DEX/JADX/smali.
+2. Read the full instruction sequence and child invocations.
+3. Every Flutter widget (`Row`, `Column`, `ListView`, `Padding`, `Container`) must map 1-to-1 to a corresponding Composable call in the bytecode.
+4. If an element does NOT exist in the decompiled method (such as a Lottie animation, decorative chevron, or custom close button), DO NOT add it.
+
+### Rule B2: Methodical Composable Bytecode Walk
+Before writing any screen, dialog, or card widget:
+1. **Walk Child Invocations**: Identify all helper composables (e.g. `Lla/h1;::x` for transaction items).
+2. **Inspect Modifiers**: Extract exact padding values, corner radii (`RoundedCornerShape`), and border parameters.
+3. **Map State & Fields**: Check which fields are passed to the composable (e.g., `description`, `balanceAfter`, `receiverName`).
+4. **Translate to Flutter**: Use the Composable-to-Flutter translation matrix directly.
+
+### Rule B3: Resource ID to String Resolution via ARSC (المرجعية الصارمة للنصوص)
+NEVER guess Arabic text or action button titles from memory:
+- Look up the hex resource ID (e.g., `0x7f130...`) in `resources.arsc` or decompiled `strings.xml`.
+- If the bytecode references `R.string.proceed`, the text is "استمرار" (NOT "متابعة").
+- If the dialog title is `R.string.transaction_details`, the text is "بيانات الحركة" (NOT "إيصال العملية").
+- Always use the literal, exact string extracted from the application's resources.
+
+### Rule B4: Safe SVG Rendering Protocol (حماية الأيقونات متعددة الألوان)
+- **Monochrome Icons**: Only apply `ColorFilter.mode(..., BlendMode.srcIn)` if the vector has a single uniform color and is intended to be tinted dynamically (e.g., unselected nav tab icons).
+- **Multi-color / Accented Icons**: Never tint icons with semantic accents (e.g., `ic_calendar.svg` with red calendar dots, `ic_export.svg` with red arrows). Render them directly with `SvgPicture.asset(path)` so internal colored layers remain intact.
+
+### Rule B5: Intercepted Network Payload Fidelity (التطابق التام مع بيانات الشبكة المفكوكة)
+- When decrypted network payloads exist (e.g., `decrypted_ExecuteE2_response.json` from mitmproxy/Frida):
+  - Model class fields must match the actual JSON keys (`TransactionDate`, `Amount`, `BalanceAfter`, etc.).
+  - Mock datasets used for UI testing must use real records from the intercepted responses, not generic placeholder values.

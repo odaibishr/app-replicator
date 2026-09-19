@@ -50,6 +50,13 @@ These rules were forged from real failures during production app replication. Th
 ### Verification Rules
 17. **SCREENSHOT_DIFF**: After every significant UI change, capture a new screenshot from the emulator and visually compare it side-by-side with the reference screenshot from the live app. This is the ONLY way to confirm pixel-perfect fidelity. Never trust code review alone.
 
+### Bytecode & Conversion Rules (Strict Anti-Hallucination)
+18. **BYTECODE_FIRST_RECONSTRUCTION (ZERO IMPROVISATION)**: If DEX bytecode or decompiled Composables are available, NEVER design UI from imagination, memory, or generic templates. Every single Flutter widget hierarchy MUST trace directly to decompiled Composable calls (`LazyColumn` → `ListView.builder`, `Box` → `Stack`/`Container`, `Row` → `Row`, `Text` → `Text`). Never add elements (e.g., Lottie animations, chevron icons, extra action buttons) that do not exist in the bytecode.
+19. **ARSC_STRING_AUTHORITY**: UI labels, button texts, dialog titles, and hints must NEVER be guessed or translated from memory. Always resolve string resource IDs against decompiled `res/values/strings.xml` or `const-string` bytecode instructions (e.g., `R.string.proceed` → `استمرار`, `R.string.transaction_details` → `بيانات الحركة`).
+20. **MULTI_COLOR_SVG_PRESERVATION**: Never apply a blanket monochrome `ColorFilter.mode(..., BlendMode.srcIn)` across an entire SVG asset unless it is proven to be strictly single-color monochrome. Vector assets containing semantic status dots, two-tone fills, or colored badge accents (e.g., `ic_calendar.svg`, `ic_export.svg`) must be rendered raw without destructive color filters.
+21. **DIALOG_AND_SHEET_DECOMPILATION**: Dialogs, bottom sheets, date pickers, and alerts are first-class screens. Locate their Composable method or DialogFragment in DEX/smali (e.g., `Lra/w;::o`, `Lra/m;::e`), decompile their component tree, and reconstruct them with the exact same 100% rigor as main screens.
+22. **DECRYPTED_PAYLOAD_SCHEMA_CONFORMANCE**: When decrypted network traffic (e.g., intercepted mitmproxy logs or decrypted API JSON files) is available, Flutter data models and mock instances must match the exact schema and real values from intercepted responses (e.g., `decrypted_ExecuteE2_response.json`), matching field names, date formats, and status codes.
+
 ---
 
 ## Core Pipeline
@@ -280,6 +287,21 @@ For each target Composable method:
   5. Reconstruct readable Kotlin with actual parameter names from spec
 ```
 
+### Jetpack Compose to Flutter Translation Matrix:
+| Jetpack Compose Element | Bytecode Signature | Flutter Equivalent |
+|---|---|---|
+| `LazyColumn { items(...) }` | `LazyDslKt.items(...)` | `ListView.builder(...)` |
+| `Box(contentAlignment = ...)` | `BoxKt.Box(...)` | `Stack(alignment: ...)` or `Container(...)` |
+| `Row(horizontalArrangement = ...)` | `RowKt.Row(...)` | `Row(mainAxisAlignment: ...)` |
+| `Column(verticalArrangement = ...)` | `ColumnKt.Column(...)` | `Column(mainAxisAlignment: ...)` |
+| `Surface(shape = ..., color = ...)` | `SurfaceKt.Surface(...)` | `Material(...)` / `Container(decoration: ...)` |
+| `Modifier.padding(all = X.dp)` | `PaddingKt.padding(...)` | `Padding(padding: EdgeInsets.all(X))` |
+| `Modifier.clip(RoundedCornerShape(X.dp))` | `ClipKt.clip(...)` | `ClipRRect(borderRadius: BorderRadius.circular(X))` |
+| `Modifier.border(width, color, shape)` | `BorderKt.border(...)` | `BoxDecoration(border: Border.all(...))` |
+| `Modifier.clickable { ... }` | `ClickableKt.clickable(...)` | `InkWell(...)` or `GestureDetector(...)` |
+| `Text(text = stringResource(id), ...)` | `StringResources_androidKt.stringResource(...)` | Extract string value from ARSC → `Text(...)` |
+| `Icon(painter = painterResource(id))` | `PainterResources_androidKt.painterResource(...)` | `SvgPicture.asset(...)` |
+
 ---
 
 ## Phase 2.9: Color Palette Pixel Sampling (NEW)
@@ -443,8 +465,13 @@ REPEAT:
 
 ## Autonomous Invariants
 
+- NEVER build UI from imagination, visual guessing, or generic Flutter templates when DEX bytecode or Composable methods are available.
+- NEVER invent fictional elements (e.g., Lottie animations, extra chevrons, fabricated buttons) not present in the decompiled bytecode.
 - NEVER use placeholder gray boxes when real vector icons exist in `extracted_assets/`.
-- NEVER ask the user how to fix layout padding or which colors to use; determine them directly from the screenshot and XML dump.
+- NEVER apply blanket monochrome `ColorFilter` on multi-color SVG assets containing accent colors.
+- NEVER guess Arabic strings or button titles — always look up the exact string in decompiled ARSC `strings.xml`.
+- ALWAYS treat dialogs, bottom sheets, and alert modals as first-class screens requiring full decompilation before implementation.
+- NEVER ask the user how to fix layout padding or which colors to use; determine them directly from the screenshot, XML dump, and bytecode parameters.
 - NEVER build custom carousel/pager widgets when `carousel_slider` exists.
 - NEVER trust ARSC colors alone — always pixel-sample the live screenshot.
 - NEVER skip font verification after extraction — always hot-restart and confirm rendering.
