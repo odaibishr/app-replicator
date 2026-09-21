@@ -5,13 +5,13 @@ argument-hint: "<package_name> [--device <serial>] [--flutter-dir <path>] [--scr
 user-invocable: true
 ---
 
-# App Replicator — Universal Android to Flutter Replicator (v2.0)
+# App Replicator — Universal Android to Flutter Replicator (v3.0)
 
 You are about to reverse-engineer and rebuild an Android application as a **pixel-perfect Flutter replica**.
 
-This skill is the mobile counterpart to `site-replicator`. While `site-replicator` operates on web DOM and CSS, `app-replicator` operates directly on live Android device state, APK binary packages, DEX bytecode, vector drawables, and native network streams.
+This skill is the mobile counterpart to `site-replicator`. While `site-replicator` operates on web DOM and CSS, `app-replicator` operates directly on live Android device state, APK binary packages, DEX bytecode, vector drawables, native network streams, and live process memory.
 
-> **v2.0 UPGRADE**: Based on battle-tested real-world reverse-engineering of production apps (Jaib wallet, etc.), this version adds 17 Iron Rules, deep screen decompilation, live interaction capture, pixel-level color extraction, and visual diff QA.
+> **v3.0 UPGRADE (AUTONOMOUS HYPER-REPLICATOR)**: Introduces automated Compose-to-Flutter code synthesis, computer vision visual diff engine (SSIM >= 98%), live memory DEX dumper for packed APKs, network payload to Mock API synthesizer, classic Android XML decompiler, automated ADB flow crawler, interactive split-slider fidelity dashboard, and master one-click orchestrator.
 
 ---
 
@@ -53,84 +53,90 @@ These rules were forged from real failures during production app replication. Th
 15. **SVG_OPACITY_EXTRACTION**: If an SVG contains embedded `opacity` or `fill-opacity` attributes that make it semi-transparent, extract it as a white alpha-mask PNG instead. This prevents the "invisible overlay" bug where nested opacity makes the graphic vanish.
 16. **PATTERN_OVERLAYS**: Decorative card patterns (arches, waves, geometric shapes) should be extracted as PNG with white fills on transparent background, then positioned with `Positioned(left:0, bottom:0)` inside a `Stack` with `Opacity` applied externally.
 
-### Verification Rules
+### Verification & Automated QA Rules
 
-17. **SCREENSHOT_DIFF**: After every significant UI change, capture a new screenshot from the emulator and visually compare it side-by-side with the reference screenshot from the live app. This is the ONLY way to confirm pixel-perfect fidelity. Never trust code review alone.
-
-### Bytecode & Conversion Rules (Strict Anti-Hallucination)
-
-18. **BYTECODE_FIRST_RECONSTRUCTION (ZERO IMPROVISATION)**: If DEX bytecode or decompiled Composables are available, NEVER design UI from imagination, memory, or generic templates. Every single Flutter widget hierarchy MUST trace directly to decompiled Composable calls (`LazyColumn` → `ListView.builder`, `Box` → `Stack`/`Container`, `Row` → `Row`, `Text` → `Text`). Never add elements (e.g., Lottie animations, chevron icons, extra action buttons) that do not exist in the bytecode.
-19. **ARSC_STRING_AUTHORITY**: UI labels, button texts, dialog titles, and hints must NEVER be guessed or translated from memory. Always resolve string resource IDs against decompiled `res/values/strings.xml` or `const-string` bytecode instructions (e.g., `R.string.proceed` → `استمرار`, `R.string.transaction_details` → `بيانات الحركة`).
-20. **MULTI_COLOR_SVG_PRESERVATION**: Never apply a blanket monochrome `ColorFilter.mode(..., BlendMode.srcIn)` across an entire SVG asset unless it is proven to be strictly single-color monochrome. Vector assets containing semantic status dots, two-tone fills, or colored badge accents (e.g., `ic_calendar.svg`, `ic_export.svg`) must be rendered raw without destructive color filters.
-21. **DIALOG_AND_SHEET_DECOMPILATION**: Dialogs, bottom sheets, date pickers, and alerts are first-class screens. Locate their Composable method or DialogFragment in DEX/smali (e.g., `Lra/w;::o`, `Lra/m;::e`), decompile their component tree, and reconstruct them with the exact same 100% rigor as main screens.
-22. **DECRYPTED_PAYLOAD_SCHEMA_CONFORMANCE**: When decrypted network traffic (e.g., intercepted mitmproxy logs or decrypted API JSON files) is available, Flutter data models and mock instances must match the exact schema and real values from intercepted responses (e.g., `decrypted_ExecuteE2_response.json`), matching field names, date formats, and status codes.
+17. **SCREENSHOT_DIFF**: After every significant UI change, capture a new screenshot from the emulator and visually compare it side-by-side with the reference screenshot from the live app.
+18. **BYTECODE_FIRST_RECONSTRUCTION (ZERO IMPROVISATION)**: If DEX bytecode or decompiled Composables are available, NEVER design UI from imagination, memory, or generic templates. Every single Flutter widget hierarchy MUST trace directly to decompiled Composable calls (`LazyColumn` → `ListView.builder`, `Box` → `Stack`/`Container`, `Row` → `Row`, `Text` → `Text`). Never add elements that do not exist in bytecode.
+19. **ARSC_STRING_AUTHORITY**: UI labels, button texts, dialog titles, and hints must NEVER be guessed or translated from memory. Always resolve string resource IDs against decompiled `res/values/strings.xml` or `const-string` bytecode instructions.
+20. **MULTI_COLOR_SVG_PRESERVATION**: Never apply a blanket monochrome `ColorFilter.mode(..., BlendMode.srcIn)` across an entire SVG asset unless it is proven to be strictly single-color monochrome.
+21. **DIALOG_AND_SHEET_DECOMPILATION**: Dialogs, bottom sheets, date pickers, and alerts are first-class screens requiring full decompilation before implementation.
+22. **DECRYPTED_PAYLOAD_SCHEMA_CONFORMANCE**: When decrypted network traffic is available, Flutter data models and mock instances must match the exact schema and real values from intercepted responses.
+23. **AUTOMATED_VISUAL_DIFF_VERIFICATION (SSIM >= 98%)**: Always run `visual_diff_engine.py` to quantify pixel parity. A screen replica is not considered complete until the Fidelity Score reaches $\ge 98.0\%$ with zero critical layout discrepancies.
+24. **OFFLINE_MOCK_DATA_FIDELITY**: Replicas must be offline-ready out-of-the-box. Run `network_mock_synthesizer.py` to inject real intercepted JSON response schemas into mock repositories.
+25. **ZERO_REGRESSION_SPLIT_AUDIT**: For review, generate the interactive `fidelity_dashboard.py` report with the split-slider to confirm zero visual regression.
 
 ---
 
-## Core Pipeline
+## Core Pipeline (v3.0)
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│ Phase 0: Discovery & Setup                             │
-│ ADB devices → Package verification → Environment check │
+│ Phase 0: Discovery & Environment Setup                 │
+│ ADB devices → Package verification → Density check     │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 1: Reconnaissance & Patching                     │
-│ Pull Split APKs → Patch SSL & Debuggable → Reinstall   │
+│ Phase 1: Reconnaissance, Pulling & Anti-Detection      │
+│ Split APKs Pull → SSL Patch / Frida Anti-Detection     │
+│ [Optional: Phase 1.5 Live Memory DEX Dumper]           │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 2: Universal Asset Extraction                    │
+│ Phase 2: Universal Asset & Vector Extraction           │
 │ Vector XMLs → Standard SVGs | High-DPI PNGs | Lottie   │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 2.5: Design System & Custom Font Extraction      │
-│ Fonts → ARSC Tokens → pubspec.yaml → Dart Themes       │
+│ Phase 2.5: Design System & Font Binaries Extraction    │
+│ True Fonts (.otf/.ttf) → ARSC Tokens → Dart Themes     │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 2.7: Screen Decompilation & Architectural Map    │
-│ DEX → Composables → ViewModels → Navigation → States   │
+│ Phase 2.7 & 2.8: Deep Screen Decompiler (AST Walk)     │
+│ Target Screen → Full Component Tree + Animation Params │
+│ [Or: Classic XML Layout Decompiler for Non-Compose]    │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ ★ Phase 2.8: Deep Screen Decompiler (NEW)              │
-│ Target Screen → Full Component Tree → Kotlin Synthesis │
-│ → Layout params → Animation configs → Data models      │
+│ ★ Phase 2.8.5: Compose-to-Flutter Transpiler (NEW)     │
+│ AST Tree → Production Clean Architecture Dart Widgets  │
+│ → BLoC / Cubit Stateflows → Full RTL Layouts           │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 2.9: Color Palette Pixel Sampling (NEW)          │
+│ Phase 2.9: Pixel-Level Color Sampling                  │
 │ Screenshot → Region Sampling → Brand Palette → Dart    │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 3: Live Screen Inspection                        │
-│ Screenshot (Visual Truth) + UI Automator XML Dump      │
+│ Phase 3: Live Screen Inspection & UI Automator Dumps   │
+│ Screenshot (Visual Truth) + XML Coordinate Hierarchy   │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ ★ Phase 3.5: Live Interaction Capture (NEW)            │
-│ Swipe/Tap gestures → Observe blur/rotation/scale/fade  │
-│ → Document all transition effects per component        │
+│ ★ Phase 3.6: Automated Flow Crawler & Motion (NEW)     │
+│ ADB Auto-Tap/Swipe → Screen DAG → Motion Easing Curves │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 4: Flutter Architecture Synthesis                │
+│ Phase 4: Flutter Project Scaffolding & Synthesis       │
 │ Clean Architecture + BLoC + Design Tokens + RTL Arabic │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ Phase 5: Verification & Quality Assurance              │
-│ flutter analyze + Screenshot Diff + Emulator Screencap │
+│ ★ Phase 4.5: Network & Mock API Synthesizer (NEW)      │
+│ Intercepted JSON/HAR → Dart Models + Mock Repository   │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│ ★ Phase 5.5: Visual Diff QA Loop (NEW)                 │
-│ Side-by-side overlay comparison of Flutter vs. Original │
-│ Iterate until pixel-level match confirmed              │
+│ ★ Phase 5.5: Automated Visual Diff & SSIM Engine (NEW) │
+│ Computer Vision Comparison → Fidelity Score (>= 98%)   │
+│ → Heatmap Overlay → Actionable Auto-Tuning Checklist   │
+└───────────────────────────┬────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────┐
+│ ★ Phase 5.6: Interactive Visual Fidelity Dashboard     │
+│ Standalone HTML with Before/After Split Drag Slider    │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -178,6 +184,26 @@ python <skill-dir>/scripts/app_patcher.py <package_name> <device_serial>
 5. Uninstalls the original app and reinstalls the patched APKs via `adb install-multiple`
 
 > **Note for Production User Builds:** If `adb root` fails with `adbd cannot run as root in production builds`, the `--debuggable` flag injected by `app_patcher.py` allows Frida and debugging tools to attach directly without root.
+
+---
+
+## ★ Phase 1.5: Live Memory DEX Dumper & Frida Anti-Detection (NEW)
+
+For banking apps, fintech wallets, and heavily packed or obfuscated APKs (Tencent, Bangcle, SecNe, Jiagu):
+
+### 1. In-Memory DEX Dumper
+If the APK has protected DEX files that cannot be statically extracted:
+```bash
+python <skill-dir>/scripts/dex_memory_dumper.py <package_name> --serial <device_serial> --output-dir data/memory_dump
+```
+Scans memory maps of the running process for magic `dex\n035`/`037`/`039` headers and reconstructs valid unpacked `.dex` binaries for decompilation.
+
+### 2. Frida Master Anti-Detection Suite
+Inject our universal unpinning and anti-detection suite:
+```bash
+frida -U -f <package_name> -l <skill-dir>/scripts/frida_anti_detection.js --no-pause
+```
+Bypasses Root, Magisk, Zygisk, Emulator checks (masks as Pixel 6), Developer mode, and universal SSL pinning in one shot.
 
 ---
 
@@ -329,6 +355,35 @@ For each target Composable method:
 
 ---
 
+## ★ Phase 2.8.5: Compose-to-Flutter Transpiler (NEW)
+
+Synthesize production Clean Architecture Flutter widgets and BLoC cubits directly from the decompiled JSON component tree:
+
+```bash
+python <skill-dir>/scripts/compose_to_flutter_transpiler.py <decompiled_dir>/home_component_tree.json --screen "Home" --output-dir <flutter_project>/lib/features
+```
+
+### What this generates:
+1. `<Screen>View.dart`: Main screen composition wrapped with `TextDirection.rtl` (Iron Rule #13), `SafeArea`, and `Scaffold`.
+2. `presentation/widgets/<widget>.dart`: Fully isolated, modular sub-widgets with optical sizing and custom SVG asset loading.
+3. `presentation/bloc/<screen>_state.dart` & `<screen>_cubit.dart`: Mapped state management flows corresponding to decompiled ViewModels.
+
+---
+
+## ★ Classic Android XML Layout Decompiler (For Non-Compose Apps)
+
+For traditional Android apps using XML layouts (`res/layout/*.xml`):
+
+```bash
+python <skill-dir>/scripts/xml_layout_decompiler.py <path_to_layout.xml> --output <flutter_project>/lib/presentation/widgets
+```
+- Translates `ConstraintLayout` and `RelativeLayout` to `Stack` or `Column`/`Row`.
+- Translates `LinearLayout` (`orientation=vertical|horizontal`) directly to `Column` or `Row`.
+- Translates `RecyclerView` to `ListView.builder`.
+- Maps `@dimen`, `@string`, and `@drawable` references to Flutter design tokens.
+
+---
+
 ## Phase 2.9: Color Palette Pixel Sampling (NEW)
 
 ARSC colors represent design-time tokens. Runtime colors (dark mode overlays, gradients, card tints) can only be captured from the live pixel buffer.
@@ -425,6 +480,21 @@ effects:
 
 ---
 
+## ★ Phase 3.6: Automated Flow Crawler & Motion Analyzer (NEW)
+
+Autonomously discover navigation flows and record transition micro-interactions:
+
+```bash
+python <skill-dir>/scripts/flow_crawler.py --package <package_name> --serial <device_serial> --output-dir data/flow_crawler
+```
+
+### Capabilities:
+1. Parses UI Automator XML dumps to detect clickable and scrollable widgets.
+2. Taps buttons/tabs, captures new screen states, and presses Back.
+3. Automatically outputs a complete **Mermaid Navigation Diagram** (`flow_graph.md`) and state transition JSON (`flow_graph.json`).
+
+---
+
 ## Phase 4: Flutter Synthesis
 
 ### 4.1 Project Scaffolding
@@ -456,6 +526,20 @@ python <skill-dir>/scripts/flutter_scaffolder.py <project_name> --assets extract
 
 ---
 
+## ★ Phase 4.5: Network & Mock API Synthesizer (NEW)
+
+Generate offline-ready, typed data layers directly from intercepted network payloads or decrypted JSONs:
+
+```bash
+python <skill-dir>/scripts/network_mock_synthesizer.py <decrypted_payload.json> --name "WalletData" --output-dir <flutter_project>/lib/features/wallet/data
+```
+
+### What this generates:
+1. `wallet_data_model.dart`: Strongly-typed Dart classes with `fromJson` and `toJson` serialization.
+2. `mock_wallet_data_repository.dart`: Offline repository with real responses and 350ms simulated network latency.
+
+---
+
 ## Phase 5: Verification & Quality Assurance
 
 1. **Static Analysis**:
@@ -463,38 +547,45 @@ python <skill-dir>/scripts/flutter_scaffolder.py <project_name> --assets extract
     flutter analyze
     ```
     Must pass with zero errors.
-2. **Visual Fidelity** (Iron Rule #17):
+2. **Visual Fidelity Capture**:
     ```bash
-    # Capture from emulator
     adb -s <serial> shell screencap -p /sdcard/flutter_result.png
     adb -s <serial> pull /sdcard/flutter_result.png
     ```
-    Compare the Flutter rendered layout against the captured reference screenshot from the live app.
 
 ---
 
-## ★ Phase 5.5: Visual Diff QA Loop (NEW)
+## ★ Phase 5.5: Automated Visual Diff & SSIM Engine (NEW)
 
-This is an iterative loop that runs until the Flutter output matches the original app pixel-perfectly:
+Quantify pixel-level fidelity using computer vision rather than human eyesight:
 
+```bash
+python <skill-dir>/scripts/visual_diff_engine.py <reference_original.png> <flutter_replica.png> --output-dir data/visual_diff --density 560
 ```
-REPEAT:
-  1. Capture Flutter emulator screenshot
-  2. Capture original app screenshot (same screen, same state)
-  3. Overlay and compare:
-     - Background colors match?
-     - Card dimensions match?
-     - Font rendering matches?
-     - Icon sizes uniform?
-     - Spacing and padding correct?
-     - RTL alignment correct?
-     - Animation effects match (blur, rotation, scale)?
-  4. If differences found:
-     a. Identify the exact component with the mismatch
-     b. Measure the correct values from the original screenshot
-     c. Update the Flutter widget with corrected values
-     d. Hot-reload and re-capture
-  5. UNTIL: No visible differences remain
+
+### Outputs:
+1. `fidelity_score_percent`: Numerical score (target: $\ge 98\%$).
+2. `diff_heatmap.png`: High-contrast overlay highlighting exact discrepant regions.
+3. `visual_diff_report.json`: Actionable auto-tuning checklist (e.g., vertical offsets in dp, color mismatch delta).
+
+---
+
+## ★ Phase 5.6: Interactive Visual Fidelity Dashboard (NEW)
+
+Generate a self-contained, standalone HTML report featuring an interactive before/after split slider:
+
+```bash
+python <skill-dir>/scripts/fidelity_dashboard.py <reference_original.png> <flutter_replica.png> --diff-json data/visual_diff/visual_diff_report.json --screen "Home" --output fidelity_report.html
+```
+
+---
+
+## ⚡ Master Pipeline Orchestrator CLI
+
+Execute the entire replication lifecycle with a single master command:
+
+```bash
+python <skill-dir>/scripts/orchestrator.py <package_name> --device <device_serial> --screen "Home" --flutter-dir <path_to_flutter_project>
 ```
 
 ---

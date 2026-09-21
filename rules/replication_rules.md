@@ -320,3 +320,23 @@ NEVER guess Arabic text or action button titles from memory:
 - When decrypted network payloads exist (e.g., `decrypted_ExecuteE2_response.json` from mitmproxy/Frida):
   - Model class fields must match the actual JSON keys (`TransactionDate`, `Amount`, `BalanceAfter`, etc.).
   - Mock datasets used for UI testing must use real records from the intercepted responses, not generic placeholder values.
+
+---
+
+## 9. Automated Verification & Autonomous Fidelity (v3.0)
+
+### Rule A1: Automated SSIM Benchmark (معيار الـ SSIM الآلي)
+- Never rely solely on manual eye inspection.
+- Execute `visual_diff_engine.py` to calculate exact pixel SSIM and fidelity score.
+- Strict gate: Fidelity Score must be $\ge 98.0\%$ before marking a screen as complete.
+- Resolve any bounding boxes flagged in the generated `visual_diff_report.json`.
+
+### Rule A2: Offline Mock Parity (التشغيل المستقل الأوفلاين)
+- Generated Flutter screens must run interactively without backend dependency.
+- Run `network_mock_synthesizer.py` on decrypted network logs to embed real JSON fixtures into mock repositories.
+- Replicas must support full user interaction, state changes, and simulated network latency (300–400ms).
+
+### Rule A3: Split-Slider Visual Audit (التدقيق التفاعلي بالسحب)
+- Generate `fidelity_dashboard.py` to produce a standalone `fidelity_report.html`.
+- Use the interactive split slider to audit edge alignment, font weight rendering, and SVG scaling against the live Android reference.
+

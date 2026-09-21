@@ -20,6 +20,20 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Dict, Tuple, Optional, List
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+try:
+    from loguru import logger
+    logger.disable("androguard")
+    from androguard.core.axml import AXMLPrinter
+except ImportError:
+    AXMLPrinter = None
+
 BOILERPLATE_PREFIXES = (
     "abc_", "androidx_", "notification_", "btn_checkbox_", 
     "btn_radio_", "material_", "design_", "test_", "common_google_",
@@ -154,10 +168,29 @@ def convert_vector_node_to_svg(node: ET.Element, indent: int = 2) -> str:
     return ""
 
 def convert_android_vector_to_svg(xml_path: Path) -> Optional[str]:
-    """Parses an Android Vector Drawable XML and returns valid SVG string."""
+    """Parses an Android Vector Drawable XML (plaintext or binary AXML) and returns valid SVG string."""
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        raw_bytes = xml_path.read_bytes()
+        root = None
+
+        # Try parsing as standard plaintext XML first
+        try:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+        except Exception:
+            # Fallback to Androguard AXML printer for compiled binary XML
+            if AXMLPrinter:
+                try:
+                    printer = AXMLPrinter(raw_bytes)
+                    xml_str = printer.get_xml()
+                    if xml_str:
+                        root = ET.fromstring(xml_str)
+                except Exception:
+                    root = None
+
+        if root is None:
+            return None
+
         tag = root.tag.split("}")[-1] if "}" in root.tag else root.tag
         if tag != "vector":
             return None
@@ -249,6 +282,16 @@ def extract_from_apk(apk_path: Path, out_dir: Path):
     print(f"[*] Unpacking APK: {apk_path}...")
     with zipfile.ZipFile(apk_path, "r") as z:
         z.extractall(temp_unpack)
+
+    # If it was an .apks bundle, unpack each inner .apk part
+    inner_apks = list(temp_unpack.glob("*.apk"))
+    for inner in inner_apks:
+        print(f"[*] Unpacking bundle part: {inner.name}...")
+        try:
+            with zipfile.ZipFile(inner, "r") as z_inner:
+                z_inner.extractall(temp_unpack)
+        except Exception as e:
+            print(f"[!] Warning: Failed to unpack inner APK {inner.name}: {e}")
 
     extract_from_directory(temp_unpack, out_dir)
     shutil.rmtree(temp_unpack, ignore_errors=True)
