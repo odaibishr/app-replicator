@@ -20,37 +20,45 @@ This skill is the mobile counterpart to `site-replicator`. While `site-replicato
 These rules were forged from real failures during production app replication. They are non-negotiable.
 
 ### Typography Rules
+
 1. **FONT_ACTIVATION**: After extracting fonts, ALWAYS verify `pubspec.yaml` has the correct `fonts:` block with family name, asset path, and weight. Run `flutter pub get` and hot-restart (not hot-reload) to activate fonts. If the font doesn't render, check the family name in Dart matches the `pubspec.yaml` family name EXACTLY.
 2. **FONT_FALLBACK**: Never use `google_fonts` package if the APK contains embedded custom fonts. Extract the real `.otf`/`.ttf` binaries and use `fontFamily:` directly.
 3. **ARABIC_FONT_WEIGHTS**: Arabic fonts often bundle all weights in one `.otf`. If you see only one font file, register it under weight `400` and control visual weight with `FontWeight.w800` etc. in TextStyle.
 
 ### Color Rules
+
 4. **DUAL_COLOR_EXTRACTION**: ARSC colors alone are NEVER enough. Always supplement with pixel sampling from live screenshots. Take the screenshot, sample specific coordinates (header bg, card bg, button bg, text colors) and cross-reference with ARSC values.
 5. **RUNTIME_COLORS**: Many apps apply colors programmatically (dark mode overlays, card gradients). The ONLY source of truth is the live screenshot pixel — not the XML resource file.
 6. **OPACITY_TRAP**: When an SVG/vector has internal `opacity` attributes AND you wrap it in a Flutter `Opacity` widget, the effect doubles and the graphic becomes invisible. Solution: Extract the raw shapes as a white-on-transparent PNG, then apply ONE external Opacity widget.
 
 ### Layout Rules
+
 7. **DP_FROM_BOUNDS**: Calculate exact dp values from UI Automator bounds: `dp = px / (density / 160)`. For an emulator at 560dpi: `dp = px / 3.5`. Never eyeball padding values.
 8. **CARD_SIZE_FROM_VIEWPORT**: For carousels, measure the card width from screenshot bounds, then calculate `viewportFraction = card_width_dp / screen_width_dp`.
 9. **FIXED_ICON_CONTAINER**: SVG icons from different designers have wildly different viewBox aspect ratios. ALWAYS wrap each icon in a fixed-height `SizedBox` and calibrate `width`/`height` per-icon to achieve optical uniformity. A 29x16 viewBox icon needs different constraints than a 24x24 one.
 
 ### Carousel & Animation Rules
+
 10. **USE_REAL_LIBRARIES**: Never build carousel/pager widgets from scratch. Use `carousel_slider` for Flutter. Match the original app's behavior exactly with `enlargeCenterPage`, `enlargeFactor`, `viewportFraction`, and `enlargeStrategy`.
 11. **INSPECT_LIVE_GESTURES**: Before building any interactive component, swipe/tap/scroll on the real app and observe: Does the inactive card blur? Rotate? Scale? Fade? Document every visual effect seen during interaction.
 12. **DECOMPILE_COMPOSE_EFFECTS**: In Jetpack Compose apps, the `graphicsLayer` block in `HorizontalPager` contains exact `scaleX`, `scaleY`, `rotationZ`, `alpha`, and blur values. Decompile these to match Flutter transforms exactly.
 
 ### RTL Rules
+
 13. **FULL_APP_RTL**: For Arabic apps, wrap the ENTIRE `MaterialApp` in `Directionality(textDirection: TextDirection.rtl)` or set `locale` and `supportedLocales`. Every single screen, card, and list must flow right-to-left.
 14. **PER_WIDGET_RTL**: Inside isolated widgets like wallet cards, add an explicit `Directionality(textDirection: TextDirection.rtl)` wrapper to guarantee RTL even when the widget is used in non-RTL test contexts.
 
 ### Asset Rules
+
 15. **SVG_OPACITY_EXTRACTION**: If an SVG contains embedded `opacity` or `fill-opacity` attributes that make it semi-transparent, extract it as a white alpha-mask PNG instead. This prevents the "invisible overlay" bug where nested opacity makes the graphic vanish.
 16. **PATTERN_OVERLAYS**: Decorative card patterns (arches, waves, geometric shapes) should be extracted as PNG with white fills on transparent background, then positioned with `Positioned(left:0, bottom:0)` inside a `Stack` with `Opacity` applied externally.
 
 ### Verification Rules
+
 17. **SCREENSHOT_DIFF**: After every significant UI change, capture a new screenshot from the emulator and visually compare it side-by-side with the reference screenshot from the live app. This is the ONLY way to confirm pixel-perfect fidelity. Never trust code review alone.
 
 ### Bytecode & Conversion Rules (Strict Anti-Hallucination)
+
 18. **BYTECODE_FIRST_RECONSTRUCTION (ZERO IMPROVISATION)**: If DEX bytecode or decompiled Composables are available, NEVER design UI from imagination, memory, or generic templates. Every single Flutter widget hierarchy MUST trace directly to decompiled Composable calls (`LazyColumn` → `ListView.builder`, `Box` → `Stack`/`Container`, `Row` → `Row`, `Text` → `Text`). Never add elements (e.g., Lottie animations, chevron icons, extra action buttons) that do not exist in the bytecode.
 19. **ARSC_STRING_AUTHORITY**: UI labels, button texts, dialog titles, and hints must NEVER be guessed or translated from memory. Always resolve string resource IDs against decompiled `res/values/strings.xml` or `const-string` bytecode instructions (e.g., `R.string.proceed` → `استمرار`, `R.string.transaction_details` → `بيانات الحركة`).
 20. **MULTI_COLOR_SVG_PRESERVATION**: Never apply a blanket monochrome `ColorFilter.mode(..., BlendMode.srcIn)` across an entire SVG asset unless it is proven to be strictly single-color monochrome. Vector assets containing semantic status dots, two-tone fills, or colored badge accents (e.g., `ic_calendar.svg`, `ic_export.svg`) must be rendered raw without destructive color filters.
@@ -131,15 +139,20 @@ These rules were forged from real failures during production app replication. Th
 ## Phase 0: Discovery & Setup
 
 ### 0.1 Parse Arguments
+
 Target package: `$ARGUMENTS` (e.g., `com.ahd.jaib`, `com.example.app`).
 Default device serial: `emulator-5554` (or target device from `adb devices`).
 
 ### 0.2 Device Verification
+
 Check connected ADB devices:
+
 ```bash
 adb devices
 ```
+
 Ensure the target app is installed:
+
 ```bash
 adb -s <serial> shell pm list packages | grep <package_name>
 ```
@@ -151,11 +164,13 @@ adb -s <serial> shell pm list packages | grep <package_name>
 To intercept network traffic on Android 7+ and inspect memory without root permissions:
 
 Run the automated patcher script:
+
 ```bash
 python <skill-dir>/scripts/app_patcher.py <package_name> <device_serial>
 ```
 
 ### What this does:
+
 1. Resolves all split APKs via `pm path <package_name>`
 2. Pulls all parts (`base.apk`, `split_config.*.apk`) to local folder
 3. Bundles them into an `.apks` zip
@@ -171,17 +186,20 @@ python <skill-dir>/scripts/app_patcher.py <package_name> <device_serial>
 Android apps use Vector Drawables (`<vector>`) and multi-DPI directories (`drawable-xxxhdpi`, `mipmap-xxhdpi`).
 
 Run the universal asset extractor:
+
 ```bash
 python <skill-dir>/scripts/asset_extractor.py <path_to_apk_or_res> --output extracted_assets/<app_slug>
 ```
 
 ### Conversion Capabilities:
+
 - **Vector Drawables to SVGs**: Parses Android XML vector paths, groups, transforms, clip-paths, and colors into standard W3C SVGs.
 - **DPI Ranking**: Automatically selects the highest resolution raster image (`xxxhdpi` > `xxhdpi` > `xhdpi`).
 - **Boilerplate Noise Filtering**: Strips out Android support libraries (`abc_`, `androidx_`, `notification_`, `mtrl_`).
 - **Media & Lottie**: Gathers all `.json` Lottie files and raw audio (`.mp3`, `.wav`, `.ogg`).
 
 ### Post-Extraction Checks (Iron Rule #15, #16):
+
 - Scan all SVGs for embedded `opacity` or `fill-opacity` attributes.
 - For decorative overlays (card patterns, wave shapes), convert to white-on-transparent PNG.
 - Log warnings for any SVG with `opacity < 0.5` — these will likely vanish in Flutter `Opacity` nesting.
@@ -197,12 +215,14 @@ python <skill-dir>/scripts/design_system_extractor.py <path_to_apk_or_apks> --fl
 ```
 
 ### What this extracts:
+
 1. **True Font Binaries (`.otf`, `.ttf`)**: Pulls all embedded custom font families from `res/font/` or `assets/fonts/` into Flutter's `assets/fonts/`.
 2. **Font Weights & Declarations**: Automatically detects font weights and injects the `fonts:` manifest into `pubspec.yaml`.
 3. **ARSC Design Tokens**: Decodes Android compiled binary resource tables (`resources.arsc`) to recover exact brand color values.
 4. **Dart Design System**: Generates `app_typography.dart` and `app_theme.dart`.
 
 ### Post-Extraction Verification (Iron Rule #1, #2):
+
 ```bash
 # ALWAYS verify font activation after extraction:
 cd <flutter_project>
@@ -221,12 +241,13 @@ python <skill-dir>/scripts/screen_decompiler.py <path_to_apk_or_apks> --output <
 ```
 
 ### What this maps & extracts:
+
 1. **Navigation Graph & Routes**: Discovers all screen paths (`/home`, `/cards`, `/transfer`, `/reports`, `/profile`, `/settings`, etc.).
 2. **Jetpack Compose Screens & UI Trees**: Identifies all Composable screen functions, layout scaffolds, and parameter signatures.
 3. **ViewModels & Reactive State Flows**: Maps `StateFlow` and `MutableState` properties.
 4. **Exported Architectural Artifacts**:
-   - `screens_architecture_spec.json`: Machine-readable mapping of all screens.
-   - `screens_summary.md`: Human-readable inventory.
+    - `screens_architecture_spec.json`: Machine-readable mapping of all screens.
+    - `screens_summary.md`: Human-readable inventory.
 
 ---
 
@@ -235,46 +256,49 @@ python <skill-dir>/scripts/screen_decompiler.py <path_to_apk_or_apks> --output <
 This is the **killer feature**. Given a target screen name, this phase fully decompiles that screen into a readable Kotlin/Compose source reconstruction with all its components, data models, animations, and state management.
 
 ### Usage:
+
 ```bash
 python <skill-dir>/scripts/deep_screen_decompiler.py <apk_path> --screen "Home" --output <output_dir>
 ```
 
 ### What it does (step by step):
+
 1. **Screen Discovery**: Finds the target Composable class by matching route name (e.g., "Home" → `Lib/y;::c`) from the `screens_architecture_spec.json`.
 2. **Full Method Bytecode Walk**: For every method in the target class, walks ALL bytecode instructions — not just `const-string` and `invoke` — capturing:
-   - `const-string`: All UI labels, resource keys, error messages
-   - `invoke-*`: All function calls, Compose widget invocations, ViewModel state reads
-   - `sget/sput`: Static field accesses (shared prefs, singletons)
-   - `iget/iput`: Instance field accesses (model properties, view state)
-   - `new-instance`: All data classes and models instantiated
+    - `const-string`: All UI labels, resource keys, error messages
+    - `invoke-*`: All function calls, Compose widget invocations, ViewModel state reads
+    - `sget/sput`: Static field accesses (shared prefs, singletons)
+    - `iget/iput`: Instance field accesses (model properties, view state)
+    - `new-instance`: All data classes and models instantiated
 3. **Component Tree Reconstruction**: From the invoke graph, builds a tree of Composable calls:
-   ```
-   HomeScreen (Lib/y;::c)
-   ├── HomeAppBar (Lib/h;)
-   ├── WalletCardCarousel (Lib/o;)
-   │   ├── HorizontalPager + graphicsLayer (scale, rotation, alpha)
-   │   └── WalletCard (Lbb/i;::c)
-   │       ├── card, onShowBalance, onCheckedChange
-   │       └── Image(account_card_pattern.svg)
-   ├── OnlineAdsBanner (Lib/p;)
-   ├── HomeServicesGrid (Leb/d;)
-   └── RecentTransactionItem (Lib/x;)
-   ```
+    ```
+    HomeScreen (Lib/y;::c)
+    ├── HomeAppBar (Lib/h;)
+    ├── WalletCardCarousel (Lib/o;)
+    │   ├── HorizontalPager + graphicsLayer (scale, rotation, alpha)
+    │   └── WalletCard (Lbb/i;::c)
+    │       ├── card, onShowBalance, onCheckedChange
+    │       └── Image(account_card_pattern.svg)
+    ├── OnlineAdsBanner (Lib/p;)
+    ├── HomeServicesGrid (Leb/d;)
+    └── RecentTransactionItem (Lib/x;)
+    ```
 4. **Animation & Effect Extraction**: Detects `graphicsLayer`, `Modifier.blur`, `animateFloatAsState`, `AnimatedVisibility`, and extracts:
-   - `scaleX`, `scaleY` values
-   - `rotationZ` angles (converted to radians for Flutter `Transform.rotate`)
-   - `alpha` transparency values
-   - Blur sigma values
+    - `scaleX`, `scaleY` values
+    - `rotationZ` angles (converted to radians for Flutter `Transform.rotate`)
+    - `alpha` transparency values
+    - Blur sigma values
 5. **ViewModel State Mapping**: For the associated ViewModel class (e.g., `Lib/i0;`):
-   - Lists all `StateFlow` / `MutableStateFlow` fields with their types
-   - Maps state → UI binding (which Composable reads which state)
+    - Lists all `StateFlow` / `MutableStateFlow` fields with their types
+    - Maps state → UI binding (which Composable reads which state)
 6. **Output Artifacts**:
-   - `<screen>_decompiled.kt`: Human-readable Kotlin/Compose source reconstruction
-   - `<screen>_component_tree.json`: Machine-readable component hierarchy
-   - `<screen>_animations.json`: All detected animation configs
-   - `<screen>_viewmodel.json`: ViewModel state map
+    - `<screen>_decompiled.kt`: Human-readable Kotlin/Compose source reconstruction
+    - `<screen>_component_tree.json`: Machine-readable component hierarchy
+    - `<screen>_animations.json`: All detected animation configs
+    - `<screen>_viewmodel.json`: ViewModel state map
 
 ### Deep Decompiler Strategy:
+
 ```
 For each target Composable method:
   1. Walk bytecode → extract ALL const-string values (= UI text, keys)
@@ -288,19 +312,20 @@ For each target Composable method:
 ```
 
 ### Jetpack Compose to Flutter Translation Matrix:
-| Jetpack Compose Element | Bytecode Signature | Flutter Equivalent |
-|---|---|---|
-| `LazyColumn { items(...) }` | `LazyDslKt.items(...)` | `ListView.builder(...)` |
-| `Box(contentAlignment = ...)` | `BoxKt.Box(...)` | `Stack(alignment: ...)` or `Container(...)` |
-| `Row(horizontalArrangement = ...)` | `RowKt.Row(...)` | `Row(mainAxisAlignment: ...)` |
-| `Column(verticalArrangement = ...)` | `ColumnKt.Column(...)` | `Column(mainAxisAlignment: ...)` |
-| `Surface(shape = ..., color = ...)` | `SurfaceKt.Surface(...)` | `Material(...)` / `Container(decoration: ...)` |
-| `Modifier.padding(all = X.dp)` | `PaddingKt.padding(...)` | `Padding(padding: EdgeInsets.all(X))` |
-| `Modifier.clip(RoundedCornerShape(X.dp))` | `ClipKt.clip(...)` | `ClipRRect(borderRadius: BorderRadius.circular(X))` |
-| `Modifier.border(width, color, shape)` | `BorderKt.border(...)` | `BoxDecoration(border: Border.all(...))` |
-| `Modifier.clickable { ... }` | `ClickableKt.clickable(...)` | `InkWell(...)` or `GestureDetector(...)` |
-| `Text(text = stringResource(id), ...)` | `StringResources_androidKt.stringResource(...)` | Extract string value from ARSC → `Text(...)` |
-| `Icon(painter = painterResource(id))` | `PainterResources_androidKt.painterResource(...)` | `SvgPicture.asset(...)` |
+
+| Jetpack Compose Element                   | Bytecode Signature                                | Flutter Equivalent                                  |
+| ----------------------------------------- | ------------------------------------------------- | --------------------------------------------------- |
+| `LazyColumn { items(...) }`               | `LazyDslKt.items(...)`                            | `ListView.builder(...)`                             |
+| `Box(contentAlignment = ...)`             | `BoxKt.Box(...)`                                  | `Stack(alignment: ...)` or `Container(...)`         |
+| `Row(horizontalArrangement = ...)`        | `RowKt.Row(...)`                                  | `Row(mainAxisAlignment: ...)`                       |
+| `Column(verticalArrangement = ...)`       | `ColumnKt.Column(...)`                            | `Column(mainAxisAlignment: ...)`                    |
+| `Surface(shape = ..., color = ...)`       | `SurfaceKt.Surface(...)`                          | `Material(...)` / `Container(decoration: ...)`      |
+| `Modifier.padding(all = X.dp)`            | `PaddingKt.padding(...)`                          | `Padding(padding: EdgeInsets.all(X))`               |
+| `Modifier.clip(RoundedCornerShape(X.dp))` | `ClipKt.clip(...)`                                | `ClipRRect(borderRadius: BorderRadius.circular(X))` |
+| `Modifier.border(width, color, shape)`    | `BorderKt.border(...)`                            | `BoxDecoration(border: Border.all(...))`            |
+| `Modifier.clickable { ... }`              | `ClickableKt.clickable(...)`                      | `InkWell(...)` or `GestureDetector(...)`            |
+| `Text(text = stringResource(id), ...)`    | `StringResources_androidKt.stringResource(...)`   | Extract string value from ARSC → `Text(...)`        |
+| `Icon(painter = painterResource(id))`     | `PainterResources_androidKt.painterResource(...)` | `SvgPicture.asset(...)`                             |
 
 ---
 
@@ -309,19 +334,21 @@ For each target Composable method:
 ARSC colors represent design-time tokens. Runtime colors (dark mode overlays, gradients, card tints) can only be captured from the live pixel buffer.
 
 ### Usage:
+
 ```bash
 python <skill-dir>/scripts/color_palette_extractor.py --serial <device_serial> --output <flutter_project>/lib/core/theme/
 ```
 
 ### Sampling Strategy:
+
 1. **Capture** high-res screenshot from connected device.
 2. **Define sampling regions** (auto-detected from UI Automator bounds):
-   - Header/AppBar background: top 200px center
-   - Primary card background: center of first card bounds
-   - Secondary card background: center of second card bounds
-   - Screen background: edges and bottom areas
-   - Button/FAB fill: center of clickable elements
-   - Text colors: sample text-bearing regions
+    - Header/AppBar background: top 200px center
+    - Primary card background: center of first card bounds
+    - Secondary card background: center of second card bounds
+    - Screen background: edges and bottom areas
+    - Button/FAB fill: center of clickable elements
+    - Text colors: sample text-bearing regions
 3. **Cluster colors** using K-means to identify the brand palette (typically 8-12 distinct colors).
 4. **Cross-reference** with ARSC tokens: match sampled hex values to named tokens where possible.
 5. **Generate** `app_colors.dart` with named constants and hex values verified against live pixels.
@@ -337,11 +364,13 @@ python <skill-dir>/scripts/ui_inspector.py --serial <device_serial> --output-dir
 ```
 
 ### Outputs Generated:
+
 1. `home_screen.png`: High-resolution pixel truth.
 2. `home_screen.xml`: Full node hierarchy with exact coordinates `[left,top][right,bottom]`.
 3. `home_screen_spec.json`: Formatted component tree, text labels, resource IDs, clickable states, and dimensions.
 
 ### Post-Inspection Calculations (Iron Rule #7, #8):
+
 ```python
 # Convert pixel bounds to dp:
 density_dpi = 560  # from adb shell wm density
@@ -358,17 +387,20 @@ dp_padding = pixel_padding / scale
 Before building any interactive component, you MUST observe the real app's behavior during user interaction.
 
 ### Checklist for Every Interactive Component:
-| Component | What to Observe | How to Capture |
-|---|---|---|
-| **Carousel/Pager** | Swipe → Check: side card blur? rotation angle? scale factor? opacity? | Screenshot at rest + mid-swipe + edge positions |
-| **Balance Toggle** | Tap eye icon → Check: dots↔amount transition animation | Screenshot before + after tap |
-| **Pull-to-Refresh** | Pull down → Check: indicator style, color, position | Screenshot during pull |
-| **Bottom Nav** | Tap each tab → Check: icon fill change, label bold, indicator dot | Screenshot each tab state |
-| **Card Tap** | Tap wallet card → Check: navigation destination, ripple effect | Observe + screenshot |
-| **Service Grid Item** | Tap service → Check: ripple, navigation, haptic feedback | Observe behavior |
+
+| Component             | What to Observe                                                       | How to Capture                                  |
+| --------------------- | --------------------------------------------------------------------- | ----------------------------------------------- |
+| **Carousel/Pager**    | Swipe → Check: side card blur? rotation angle? scale factor? opacity? | Screenshot at rest + mid-swipe + edge positions |
+| **Balance Toggle**    | Tap eye icon → Check: dots↔amount transition animation                | Screenshot before + after tap                   |
+| **Pull-to-Refresh**   | Pull down → Check: indicator style, color, position                   | Screenshot during pull                          |
+| **Bottom Nav**        | Tap each tab → Check: icon fill change, label bold, indicator dot     | Screenshot each tab state                       |
+| **Card Tap**          | Tap wallet card → Check: navigation destination, ripple effect        | Observe + screenshot                            |
+| **Service Grid Item** | Tap service → Check: ripple, navigation, haptic feedback              | Observe behavior                                |
 
 ### Documentation Format:
+
 For each interactive element, document:
+
 ```yaml
 component: WalletCardCarousel
 interaction: horizontal_swipe
@@ -396,22 +428,26 @@ effects:
 ## Phase 4: Flutter Synthesis
 
 ### 4.1 Project Scaffolding
+
 Create the Clean Architecture Flutter project:
+
 ```bash
 python <skill-dir>/scripts/flutter_scaffolder.py <project_name> --assets extracted_assets/<app_slug>
 ```
 
 ### 4.2 Architecture Standards:
+
 - **Directory Structure**:
-  - `lib/core/theme/` (colors, typography, theme tokens)
-  - `lib/features/<feature>/presentation/views/` (screen compositions)
-  - `lib/features/<feature>/presentation/widgets/` (isolated, modular UI components)
-  - `lib/features/<feature>/presentation/bloc/` (state management)
-  - `lib/features/<feature>/data/models/` (typed data classes)
+    - `lib/core/theme/` (colors, typography, theme tokens)
+    - `lib/features/<feature>/presentation/views/` (screen compositions)
+    - `lib/features/<feature>/presentation/widgets/` (isolated, modular UI components)
+    - `lib/features/<feature>/presentation/bloc/` (state management)
+    - `lib/features/<feature>/data/models/` (typed data classes)
 - **Asset Declaration**: Uses extracted SVGs via `flutter_svg` and images from `assets/images/`.
 - **RTL & Localization**: Use the EXTRACTED custom font (Iron Rule #2), full Arabic RTL alignment (Iron Rule #13, #14).
 
 ### 4.3 Flutter Build Rules (from Iron Rules):
+
 - **Carousel**: Use `carousel_slider` package. Set `enlargeCenterPage: true`, calibrate `viewportFraction` from screenshot measurements (Rule #10).
 - **Icons**: Wrap every SVG icon in `SizedBox(height: <fixed>)` with per-icon width/height calibration (Rule #9).
 - **Cards**: Use `ClipRRect` + `Stack` for pattern overlays. Apply `ImageFilter.blur` and `Transform.rotate` on inactive cards (Rule #12).
@@ -423,17 +459,17 @@ python <skill-dir>/scripts/flutter_scaffolder.py <project_name> --assets extract
 ## Phase 5: Verification & Quality Assurance
 
 1. **Static Analysis**:
-   ```bash
-   flutter analyze
-   ```
-   Must pass with zero errors.
+    ```bash
+    flutter analyze
+    ```
+    Must pass with zero errors.
 2. **Visual Fidelity** (Iron Rule #17):
-   ```bash
-   # Capture from emulator
-   adb -s <serial> shell screencap -p /sdcard/flutter_result.png
-   adb -s <serial> pull /sdcard/flutter_result.png
-   ```
-   Compare the Flutter rendered layout against the captured reference screenshot from the live app.
+    ```bash
+    # Capture from emulator
+    adb -s <serial> shell screencap -p /sdcard/flutter_result.png
+    adb -s <serial> pull /sdcard/flutter_result.png
+    ```
+    Compare the Flutter rendered layout against the captured reference screenshot from the live app.
 
 ---
 
